@@ -1,0 +1,183 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  ci:
+    name: Typecheck · Lint · Test · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (strict)
+        run: pnpm typecheck
+
+      - name: Lint (no-any enforced)
+        run: pnpm lint
+
+      - name: Unit + component tests (coverage ≥ 70% on lib/ and features/)
+        run: pnpm test:coverage
+
+      - name: Build (bundle size check)
+        run: pnpm build
+
+      - name: Bundle size gate (≤ 250 KB gzipped initial chunk)
+        run: |
+          INITIAL=$(find dist/assets -name '*.js' ! -name '*.map' \
+            | xargs gzip -c | wc -c)
+          echo "Initial JS bundle gzipped: ${INITIAL} bytes"
+          # 250 KB = 256000 bytes — fail if exceeded
+          if [ "$INITIAL" -gt 256000 ]; then
+            echo "FAIL: Initial bundle exceeds 250 KB gzipped"
+            exit 1
+          fi
+
+      - name: PHI leak check (no patient test names in dist)
+        run: |
+          if grep -r "Ravi\|Demo Patient\|Test Patient" dist/ 2>/dev/null | grep -v '.map'; then
+            echo "FAIL: PHI found in build output"
+            exit 1
+          fi
+          echo "PHI check: PASS"
+
+  contract-tests:
+    name: Contract tests (Supabase local)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Start Supabase local
+        run: supabase start
+
+      - name: Apply migrations + seed
+        run: |
+          supabase db push
+          supabase db seed
+
+      - name: Contract tests
+        run: pnpm test:contract
+
+      - name: RLS anon test (prescriptions must return 0 rows)
+        run: |
+          ANON_KEY=$(supabase status --output json | jq -r '.anon_key')
+          SUPABASE_URL=$(supabase status --output json | jq -r '.api_url')
+          ROWS=$(curl -s \
+            -H "apikey: ${ANON_KEY}" \
+            -H "Authorization: Bearer ${ANON_KEY}" \
+            "${SUPABASE_URL}/rest/v1/prescriptions?select=id&limit=1" \
+            | jq 'length')
+          echo "Anon prescriptions rows: ${ROWS}"
+          if [ "$ROWS" -gt 0 ]; then
+            echo "FAIL: RLS misconfiguration — anon can read prescriptions"
+            exit 1
+          fi
+          echo "RLS anon test: PASS"
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
+
+  e2e:
+    name: E2E + Accessibility (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Only run on pushes to main to keep PR feedback fast
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start Supabase local
+        run: supabase start
+
+      - name: Apply migrations + seed
+        run: |
+          supabase db push
+          supabase db seed
+
+      - name: Create E2E test accounts
+        env:
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/create-e2e-accounts.mjs
+
+      - name: Run E2E tests
+        env:
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_DOCTOR_EMAIL: doctor@clinic.test
+          E2E_DOCTOR_PASS: password1234
+          E2E_PHARMACIST_EMAIL: pharmacist@clinic.test
+          E2E_PHARMACIST_PASS: password1234
+          E2E_ADMIN_EMAIL: admin@clinic.test
+          E2E_ADMIN_PASS: password1234
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_LOCAL_ANON_KEY }}
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop

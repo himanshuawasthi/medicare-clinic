@@ -123,9 +123,19 @@
   ACTION REQUIRED: The content in this section represents placeholders.
   Fill them out with the right assumptions based on reasonable defaults
   chosen when the feature description did not specify certain details.
+
+  CONSTITUTION REMINDERS (v2.0.0):
+  - PHI sensitivity: patient name, mobile, address, age, gender, symptoms, vitals, and
+    medicines are PHI. Flag any requirement that risks exposing these in logs or URLs.
+  - Currency: all monetary values are in INR (₹). Assume paise-integer storage.
+  - Dates: all timestamps stored UTC, displayed in Asia/Kolkata as dd-MMM-yyyy.
+  - If feature involves prescription create/edit or inventory adjustment, an audit log
+    row is mandatory (not optional to mention in requirements).
 -->
 
 - [Assumption about target users, e.g., "Users have stable internet connectivity"]
 - [Assumption about scope boundaries, e.g., "Mobile support is out of scope for v1"]
 - [Assumption about data/environment, e.g., "Existing authentication system will be reused"]
 - [Dependency on existing system/service, e.g., "Requires access to the existing user profile API"]
+- [Currency assumption, e.g., "All monetary values are in INR (₹); no multi-currency"]
+- [Date/time assumption, e.g., "All timestamps stored as UTC, displayed in Asia/Kolkata"]

@@ -40,7 +40,27 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Verify compliance with the Medicare Clinic Constitution (`.specify/memory/constitution.md`):
+
+- [ ] **I. Patient-First & PHI Privacy**: Feature design prioritises patient safety and data
+  privacy. No PHI (name, mobile, symptoms, vitals, medicines) in logs, error messages, URLs,
+  or analytics. Log lines reference opaque entity IDs only.
+- [ ] **II. Supabase RLS Security**: Every database write goes through RLS. No service-role
+  key shipped to the browser. RLS policies defined and reviewed for all affected tables.
+- [ ] **III. Type-Safe Contracts**: All API boundaries and forms validated by shared Zod
+  schemas. TypeScript strict mode enabled. No `any`. Types inferred from schemas, not
+  duplicated.
+- [ ] **IV. Contract Tests**: Every new API endpoint or server action has a contract test
+  that verifies the request/response shape against the shared Zod schema. Contract tests
+  run in CI and MUST pass before merge.
+- [ ] **V. Audit Trail**: Every prescription create/edit and every inventory adjustment
+  writes an immutable audit row in the same transaction. No mutation without an audit row.
+- [ ] **VI. INR Currency**: All monetary values stored as paise (integer). Display uses ₹
+  symbol with Indian number formatting. No multi-currency logic introduced.
+- [ ] **VII. UTC / Asia/Kolkata**: Timestamps stored as UTC. Display converted to
+  Asia/Kolkata. Date format `dd-MMM-yyyy`. No local-time arithmetic in business logic.
+- [ ] **VIII. Simplicity**: Complexity justified against patient-care or compliance need.
+  No premature abstractions. Technical debt logged if unavoidable.
 
 ## Project Structure
 

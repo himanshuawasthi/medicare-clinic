@@ -52,6 +52,8 @@ description: "Task list template for feature implementation"
 - [ ] T001 Create project structure per implementation plan
 - [ ] T002 Initialize [language] project with [framework] dependencies
 - [ ] T003 [P] Configure linting and formatting tools
+- [ ] T004 [P] Configure secrets manager integration (no credentials in source)
+- [ ] T005 [P] Set up audit-log infrastructure (tamper-evident, append-only)
 
 ---
 
@@ -63,12 +65,15 @@ description: "Task list template for feature implementation"
 
 Examples of foundational tasks (adjust based on your project):
 
-- [ ] T004 Setup database schema and migrations framework
-- [ ] T005 [P] Implement authentication/authorization framework
-- [ ] T006 [P] Setup API routing and middleware structure
-- [ ] T007 Create base models/entities that all stories depend on
-- [ ] T008 Configure error handling and logging infrastructure
-- [ ] T009 Setup environment configuration management
+- [ ] T004 Setup database schema and migrations framework (Supabase RLS policies required on all PHI tables)
+- [ ] T005 [P] Implement authentication/authorization framework (MFA enforced; session timeout 12 h)
+- [ ] T006 [P] Setup API routing and middleware; verify no PHI in log output (Constitution I)
+- [ ] T007 Create shared Zod schema package imported by both client and server (Constitution III)
+- [ ] T008 Create base models/entities that all stories depend on
+- [ ] T009 Configure error handling — PHI-scrubbing filter on all error responses (Constitution I)
+- [ ] T010 Setup audit-log table (append-only, RLS blocks UPDATE/DELETE) and audit writer utility (Constitution V)
+- [ ] T011 [P] Setup environment configuration; confirm service-role key is server-side only (Constitution II)
+- [ ] T012 [P] Configure TypeScript strict mode + ESLint no-explicit-any in CI (Constitution III)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
